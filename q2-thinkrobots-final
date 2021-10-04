@@ -1,0 +1,34 @@
+With main as (
+	Select a.segment,c.account_status,c.total_charges,(c.total_charges/b.num_cust) adj_revenue from customers a
+join (
+	select billing_account,count(*) num_cust
+	from customers
+	group by billing_account) b
+
+on 
+	a.billing_account=b.billing_account
+join bills c
+on 
+	a.billing_account=c.billing_account
+),
+
+total as ( 
+	Select sum(adj_revenue) total_revenue from main
+),
+
+segment_cancelled as (Select segment,sum(adj_revenue) cancelled_revenue from main
+where account_status = 'cancelled'
+group by 1
+),
+
+combine as (
+	Select * from segment_cancelled,total
+)
+
+
+
+Select segment,cancelled_revenue/total_revenue*100 as p_rev_from_cancel from combine;
+-- Select a.segment, b.cancelled_revenue/a.total_revenue*100 p_rev_from_cancelled 
+-- from main a
+-- join segment_cancelled b
+-- 	on a.segment=b.segment;
