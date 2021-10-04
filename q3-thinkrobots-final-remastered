@@ -1,0 +1,51 @@
+--Challenge: An account_id can be tied to multiple customer_id creating duplicates when joining customers and bills
+--Solution: created a new column num_cust from customers that will split amount based on number of customers tied to a specific account
+--ex. if account A has total amount 100 and is tied to 2 customers Anna,Maria. 
+--The adj_revenue will split the total evenly between the 2 customers and CSMs if they are tied to different CSMs
+
+--Challenge: bills table is at a lower level of detail vs task 1 (bills table in task 1 aggregates total_charges YTD)
+--Solution: I will aggregate bills data at an account_id level replicating the bills table from task 1 
+
+--Challenge: need to identify csm's based on first letter of first name
+--Solution: Case statement using the first letter of first_name and checking if between A-L then 'mark' otherwise 'janet'
+
+
+With main as (
+	Select a.segment,d.csm_lead,(c.total_charges/b.num_cust) adj_revenue from customers a
+join (
+	select billing_account,count(*) num_cust
+	from customers
+	group by billing_account) b
+
+on 
+	a.billing_account=b.billing_account
+-- i preaggregate bills and join bills and accounts on id
+join ( 
+	
+	Select a.id, a.status, a.upgrade_at, a.cancelled_at, b.amount
+	from accounts a
+	join (
+		Select account_id, sum(amount) as amount from bills
+		group by account_id) b
+	on 
+		a.id=b.account_id
+) c
+on 
+	a.billing_account=c.billing_account
+join (
+	Select customer_id,
+		CASE
+			WHEN UPPER(LEFT(first_name,1)) Between 'A' and 'L' 
+			THEN 'Mark'
+			ELSE 'Janet'
+			END csm_lead
+	from customer_names
+) d
+on a.customer_id=d.customer_id
+where c.account_status='paying'
+)
+
+Select csm_lead,segment,sum(adj_revenue) total_revenue
+from main
+group by 1,2
+order by csm_lead asc
